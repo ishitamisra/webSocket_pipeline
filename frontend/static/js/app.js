@@ -9,6 +9,7 @@
     lastPrice: null,
     ws: null,
     wsRetryDelay: 1000,
+    chartFollowing: false,
   };
 
   const el = (id) => document.getElementById(id);
@@ -110,6 +111,12 @@
       state.lastPrice = bars[bars.length - 1].close;
       el("last-price").textContent = fmt(state.lastPrice, 2);
     }
+    // A fresh series (especially one seeded with zero bars, e.g. right
+    // after the server starts) doesn't automatically enter "follow live
+    // data" mode -- fit the view explicitly, and let the next live
+    // candle_update do it again in case there was no history yet.
+    chart.timeScale().fitContent();
+    state.chartFollowing = false;
   }
 
   // ---------- WebSocket live stream ----------
@@ -162,6 +169,13 @@
             low: msg.data.low,
             close: msg.data.close,
           });
+          if (!state.chartFollowing) {
+            // First live bar since the last setData() call -- make sure
+            // it's actually in view, then let the library's own
+            // follow-latest-bar behavior take over from here.
+            chart.timeScale().fitContent();
+            state.chartFollowing = true;
+          }
         }
         break;
       case "stats":
