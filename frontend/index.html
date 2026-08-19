@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Crypto Tick Pipeline</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/css/style.css" />
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◆</span>
+      <span class="brand-name">Tick Pipeline</span>
+    </div>
+
+    <nav class="symbol-tabs" id="symbol-tabs"></nav>
+
+    <div class="timeframe-tabs" id="timeframe-tabs">
+      <button data-tf="1" class="tf-btn">1s</button>
+      <button data-tf="5" class="tf-btn">5s</button>
+      <button data-tf="60" class="tf-btn active">1m</button>
+    </div>
+
+    <div class="conn-status" id="conn-status">
+      <span class="dot"></span>
+      <span class="conn-label">connecting…</span>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <section class="chart-panel">
+      <div class="chart-header">
+        <div class="price-block">
+          <span class="last-price" id="last-price">--</span>
+          <span class="price-change" id="price-change"></span>
+        </div>
+        <div class="legend" id="chart-legend">
+          <span class="legend-item"><i class="swatch vwap"></i>VWAP</span>
+          <span class="legend-item"><i class="swatch sma20"></i>SMA 20</span>
+          <span class="legend-item"><i class="swatch sma50"></i>SMA 50</span>
+        </div>
+      </div>
+      <div id="chart" class="chart"></div>
+    </section>
+
+    <aside class="sidebar">
+
+      <div class="card">
+        <div class="card-title">Live Metrics</div>
+        <div class="metric-grid" id="metric-grid">
+          <div class="metric"><span class="metric-label">VWAP</span><span class="metric-value" id="m-vwap">--</span></div>
+          <div class="metric"><span class="metric-label">SMA 20</span><span class="metric-value" id="m-sma20">--</span></div>
+          <div class="metric"><span class="metric-label">SMA 50</span><span class="metric-value" id="m-sma50">--</span></div>
+          <div class="metric"><span class="metric-label">EMA 20</span><span class="metric-value" id="m-ema20">--</span></div>
+          <div class="metric"><span class="metric-label">EMA 50</span><span class="metric-value" id="m-ema50">--</span></div>
+          <div class="metric"><span class="metric-label">Msgs/sec</span><span class="metric-value" id="m-rate">--</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Pipeline Health</div>
+        <div class="health-row">
+          <span class="health-label">Ring buffer</span>
+          <span class="health-value" id="h-buffer-text">0 / 0</span>
+        </div>
+        <div class="buffer-bar"><div class="buffer-bar-fill" id="h-buffer-fill"></div></div>
+        <div class="health-row"><span class="health-label">Dropped (overflow)</span><span class="health-value warn" id="h-dropped">0</span></div>
+        <div class="health-row"><span class="health-label">Out-of-order</span><span class="health-value warn" id="h-ooo">0</span></div>
+        <div class="health-row"><span class="health-label">Gaps detected</span><span class="health-value warn" id="h-gaps">0</span></div>
+        <div class="health-row"><span class="health-label">Exchange link</span><span class="health-value" id="h-exchange">--</span></div>
+        <div class="health-row"><span class="health-label">Reconnects</span><span class="health-value" id="h-reconnects">0</span></div>
+        <div class="health-row"><span class="health-label">Dashboard clients</span><span class="health-value" id="h-clients">0</span></div>
+        <div class="health-row"><span class="health-label">Uptime</span><span class="health-value" id="h-uptime">--</span></div>
+      </div>
+
+      <div class="card tape-card">
+        <div class="card-title">Trade Tape</div>
+        <div class="tape" id="tape"></div>
+      </div>
+
+    </aside>
+  </main>
+
+  <footer class="footer">
+    <span>Binance combined trade stream &middot; ring-buffered ingestion &middot; watermark-reordered aggregation</span>
+  </footer>
+
+</div>
+<script src="/static/js/app.js"></script>
+</body>
+</html>
