@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, WebSocket, WebSocketDisconn
 
 from app.api.ws_broadcast import BroadcastManager
 from app.config import settings
-from app.ingest.binance_client import BinanceTradeClient
+from app.ingest.coinbase_client import CoinbaseTradeClient
 from app.processing.pipeline import Pipeline
 from app.storage.timeseries_store import TimeSeriesStore
 
@@ -17,7 +17,7 @@ def build_router(
     pipeline: Pipeline,
     store: TimeSeriesStore,
     broadcast: BroadcastManager,
-    binance_client: BinanceTradeClient,
+    exchange_client: CoinbaseTradeClient,
     started_at: float,
 ) -> APIRouter:
     router = APIRouter()
@@ -70,14 +70,14 @@ def build_router(
         return {
             "symbols": store.get_stats(),
             "connected_clients": broadcast.client_count,
-            "exchange_connected": binance_client.connected,
-            "exchange_reconnects": binance_client.reconnect_count,
+            "exchange_connected": exchange_client.connected,
+            "exchange_reconnects": exchange_client.reconnect_count,
             "uptime_sec": round(time.monotonic() - started_at, 1),
         }
 
     @router.get("/api/health")
     async def health() -> dict:
-        return {"status": "ok", "exchange_connected": binance_client.connected}
+        return {"status": "ok", "exchange_connected": exchange_client.connected}
 
     @router.websocket("/ws/stream")
     async def ws_stream(ws: WebSocket) -> None:

@@ -1,9 +1,9 @@
 """Out-of-order tick handling.
 
 Exchange WebSocket feeds are not guaranteed to deliver messages in strict
-timestamp order -- TCP preserves ordering per-connection, but Binance's
-combined-stream multiplexer, client-side retries, and our own reconnect
-logic can all interleave or re-deliver trades slightly out of sequence.
+timestamp order -- TCP preserves ordering per-connection, but the exchange's
+own multiplexing/fan-out, client-side retries, and our own reconnect logic
+can all interleave or re-deliver trades slightly out of sequence.
 Feeding an aggregator ticks out of order corrupts OHLC candles (a "low"
 that arrives after the candle already closed) and skews VWAP.
 
@@ -14,7 +14,7 @@ watermark window could place something ahead of them anymore. This is the
 same "allowed lateness" idea used by streaming systems like Flink, scaled
 down to fit an in-process asyncio pipeline.
 
-Gap detection is separate and cheap: Binance trade IDs are monotonically
+Gap detection is separate and cheap: Coinbase trade IDs are monotonically
 increasing per symbol, so a jump greater than 1 means we missed one or more
 trades (dropped by the exchange, a reconnect gap, or our own ring buffer
 overwriting the oldest entry under load). We can't recover the missing

@@ -1,9 +1,10 @@
 # Crypto Tick Pipeline
 
 A live WebSocket ingestion pipeline for crypto trade data: it connects to
-Binance's public trade stream, computes rolling VWAP, moving averages, and
-multi-timeframe OHLC candles in real time, persists a time-series history,
-and serves it all — REST + a live WebSocket feed — to a dashboard.
+Coinbase Exchange's public trade stream, computes rolling VWAP, moving
+averages, and multi-timeframe OHLC candles in real time, persists a
+time-series history, and serves it all — REST + a live WebSocket feed — to
+a dashboard.
 
 It's built around the failure mode you actually hit doing this for real:
 **a naive per-message pipeline falls behind under load.** The fix that
@@ -14,15 +15,15 @@ See [Scale](#scale-the-naive-version-fell-behind) for the numbers.
 
 ## What it does
 
-- **Ingests** Binance's combined trade stream (`btcusdt@trade`,
-  `ethusdt@trade`, `solusdt@trade` by default) over a single multiplexed
-  WebSocket connection, with automatic reconnect + exponential backoff.
+- **Ingests** Coinbase Exchange's public `matches` channel (`BTC-USD`,
+  `ETH-USD`, `SOL-USD` by default) over a single WebSocket connection, with
+  automatic reconnect + exponential backoff.
 - **Buffers** incoming ticks in a fixed-capacity ring buffer per symbol —
   bounded memory, and a producer that never blocks the socket read loop.
 - **Reorders** ticks within a small watermark window before they're
   admitted to aggregation, so a tick that arrives slightly out of sequence
   doesn't corrupt a candle that already closed. Detects gaps (dropped
-  trades) via Binance's monotonic trade IDs.
+  trades) via Coinbase's monotonic trade IDs.
 - **Aggregates**, per symbol: rolling VWAP (sliding time window), SMA/EMA
   moving averages, and OHLC candles at 1s / 5s / 1m timeframes.
 - **Persists** ticks and closed candles to SQLite in batches (WAL mode),
@@ -37,7 +38,7 @@ See [Scale](#scale-the-naive-version-fell-behind) for the numbers.
 ## Architecture
 
 ```
- Binance combined WS  --sync callback-->  RingBuffer[symbol]  --batch drain-->  consumer task[symbol]
+ Coinbase `matches` WS  --sync callback-->  RingBuffer[symbol]  --batch drain-->  consumer task[symbol]
  (one socket, all           (bounded, drop-oldest                                     |
   symbols multiplexed)       under overload)                                          v
                                                                               Sequencer (watermark reorder,
@@ -76,7 +77,7 @@ talks to the exchange.
   asyncio pipeline. `CandleAggregator` also patches an already-closed
   candle if a tick lands for it after the watermark — rare, but disclosed
   via a `late_patches` counter rather than silently dropped.
-- **Dropped/missing**: Binance trade IDs are monotonically increasing per
+- **Dropped/missing**: Coinbase trade IDs are monotonically increasing per
   symbol. A jump greater than 1 means a trade was missed (exchange-side
   drop, reconnect gap, or the ring buffer overwriting the oldest entry
   under sustained overload). The pipeline can't recover a missing trade,
@@ -89,13 +90,29 @@ talks to the exchange.
   oldest queued messages instead of slowing down the pipeline or other
   clients.
 
+## Why Coinbase, not Binance
+
+This started out pointed at Binance, which is what the assignment brief
+suggested. It didn't survive contact with reality: Binance.com's WebSocket
+rejects US IPs outright with `HTTP 451` (not licensed to serve US
+residents), and Binance.US — while reachable — produced essentially zero
+live trade data on its combined-stream endpoint when tested directly
+(`wss://stream.binance.us:9443/stream?streams=btcusdt@trade` accepted the
+connection but never pushed a single message; most market makers left
+Binance.US after the 2023 SEC enforcement action, so its order books are
+thin enough that "connected" doesn't mean "receiving trades"). Coinbase
+Exchange's public `matches` channel needs no auth for market data, isn't
+geo-restricted, and produces several trades per second on BTC-USD alone —
+so that's what the pipeline actually ingests.
+
 ## Scale: the naive version fell behind
 
 The first pass at this pipeline used an `asyncio.Queue`, one tick
 processed per `await queue.get()`, persisted with one `INSERT` + `COMMIT`
-per tick. That's fine at the trade rate you actually see from 2-3 symbols
-on Binance. It is not fine at the rate a busier feed (more symbols, a
-volatile session, or just testing your own capacity) can produce.
+per tick. That's fine at the trade rate you actually see from a handful of
+symbols on a live exchange feed. It is not fine at the rate a busier feed
+(more symbols, a volatile session, or just testing your own capacity) can
+produce.
 
 `backend/benchmark/load_test.py` reproduces this with a synthetic 10k
 msg/sec tick generator, running the *same* aggregation logic
@@ -153,19 +170,11 @@ at `http://localhost:8000` — the dashboard is served at `/`, the REST API
 under `/api/*`, and the live feed at `ws://localhost:8000/ws/stream`.
 
 Configuration is environment-variable driven (see
-`backend/app/config.py`) — e.g. `PIPELINE_SYMBOLS=btcusdt,ethusdt`,
+`backend/app/config.py`) — e.g. `PIPELINE_SYMBOLS=BTC-USD,ETH-USD`,
 `RING_BUFFER_CAPACITY`, `BATCH_MAX_SIZE`, `REORDER_WATERMARK_MS`.
-
-By default it connects to **Binance.US**, not Binance.com — Binance.com's
-WebSocket rejects connections from US IPs with `HTTP 451` (it isn't
-licensed to serve US residents), so Binance.US is the default that works
-out of the box for US-based runs. Same API and trade message schema, just
-a different host and somewhat thinner liquidity/symbol coverage. If
-you're outside the US and want Binance.com instead:
-
-```
-BINANCE_WS_URL=wss://stream.binance.com:9443/stream ./scripts/run.sh
-```
+Symbols are Coinbase product IDs (`BASE-QUOTE`, e.g. `BTC-USD`); see
+[Why Coinbase, not Binance](#why-coinbase-not-binance) for why it isn't
+pointed at Binance.
 
 ### Tests
 
@@ -180,7 +189,7 @@ pytest
 | Endpoint | Description |
 |---|---|
 | `GET /api/symbols` | tracked symbols + supported candle timeframes |
-| `GET /api/candles/{symbol}?timeframe=60&limit=200` | OHLC candle history (in-memory or `source=db` for SQLite-backed history) |
+| `GET /api/candles/{symbol}?timeframe=60&limit=200` | OHLC candle history, e.g. `/api/candles/BTC-USD?timeframe=60` (in-memory or `source=db` for SQLite-backed history) |
 | `GET /api/vwap/{symbol}` | current rolling VWAP |
 | `GET /api/moving-average/{symbol}` | current SMA/EMA values |
 | `GET /api/stats` | per-symbol pipeline health: throughput, buffer depth, dropped/out-of-order/gap counts |
@@ -190,7 +199,7 @@ pytest
 
 ```
 backend/app/
-  ingest/         binance_client.py, ring_buffer.py, sequencer.py
+  ingest/         coinbase_client.py, ring_buffer.py, sequencer.py
   processing/     candles.py, vwap.py, moving_average.py, pipeline.py
   storage/        sqlite_store.py, timeseries_store.py
   api/            routes.py, ws_broadcast.py

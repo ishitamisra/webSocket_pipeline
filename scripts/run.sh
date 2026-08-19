@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runs the pipeline: ingests the live Binance trade stream, aggregates it,
+# Runs the pipeline: ingests the live Coinbase trade stream, aggregates it,
 # and serves the dashboard at http://localhost:8000
 set -euo pipefail
 cd "$(dirname "$0")/.."

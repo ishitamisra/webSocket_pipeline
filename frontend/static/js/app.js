@@ -66,7 +66,7 @@
     container.innerHTML = "";
     for (const sym of state.symbols) {
       const btn = document.createElement("button");
-      btn.textContent = sym.replace("USDT", "/USDT");
+      btn.textContent = sym.replace("-", "/");
       btn.dataset.symbol = sym;
       if (sym === state.symbol) btn.classList.add("active");
       btn.addEventListener("click", () => selectSymbol(sym));

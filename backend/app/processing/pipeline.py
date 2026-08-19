@@ -2,7 +2,7 @@
 
 Per symbol, the flow is:
 
-    BinanceTradeClient (recv loop)
+    CoinbaseTradeClient (recv loop)
             |  tick (sync callback, no await -> never blocks the socket read)
             v
       RingBuffer.push_nowait          <- bounded, drops oldest under overload

@@ -2,7 +2,7 @@
 
 This is the benchmark behind the scale claim in the README: "at 10k
 messages/sec the naive version fell behind, so batching + a ring buffer
-fixed it." It doesn't depend on the live Binance feed (which rarely
+fixed it." It doesn't depend on the live Coinbase feed (which rarely
 sustains 10k msg/sec for a handful of symbols) -- it generates ticks
 in-process at a controlled rate so the comparison is reproducible.
 
