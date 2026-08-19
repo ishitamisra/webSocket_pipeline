@@ -156,6 +156,17 @@ Configuration is environment-variable driven (see
 `backend/app/config.py`) — e.g. `PIPELINE_SYMBOLS=btcusdt,ethusdt`,
 `RING_BUFFER_CAPACITY`, `BATCH_MAX_SIZE`, `REORDER_WATERMARK_MS`.
 
+By default it connects to **Binance.US**, not Binance.com — Binance.com's
+WebSocket rejects connections from US IPs with `HTTP 451` (it isn't
+licensed to serve US residents), so Binance.US is the default that works
+out of the box for US-based runs. Same API and trade message schema, just
+a different host and somewhat thinner liquidity/symbol coverage. If
+you're outside the US and want Binance.com instead:
+
+```
+BINANCE_WS_URL=wss://stream.binance.com:9443/stream ./scripts/run.sh
+```
+
 ### Tests
 
 ```

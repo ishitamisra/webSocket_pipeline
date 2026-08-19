@@ -24,8 +24,14 @@ class Settings:
     symbols: list[str] = field(default_factory=lambda: _env_list(
         "PIPELINE_SYMBOLS", ["btcusdt", "ethusdt", "solusdt"]
     ))
+    # Binance.com's WebSocket rejects connections from US IPs with HTTP 451
+    # (it isn't licensed to serve US residents). Binance.US exposes the same
+    # combined-stream API and trade message schema, so it's the default here
+    # to work out of the box for US-based runs. If you're outside the US and
+    # want Binance.com's deeper liquidity/more symbols, override with
+    # BINANCE_WS_URL=wss://stream.binance.com:9443/stream
     binance_ws_url: str = os.environ.get(
-        "BINANCE_WS_URL", "wss://stream.binance.com:9443/stream"
+        "BINANCE_WS_URL", "wss://stream.binance.us:9443/stream"
     )
 
     # Ring buffer (single-producer/single-consumer per symbol stream)
