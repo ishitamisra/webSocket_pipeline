@@ -129,6 +129,11 @@
     ws.onopen = () => {
       setConnStatus(true);
       state.wsRetryDelay = 1000;
+      // Re-sync from REST on every (re)connect, not just the first page
+      // load -- otherwise a long-lived tab that survives a WS drop (sleep,
+      // wifi blip) keeps showing whatever the chart looked like before the
+      // gap, with live updates landing outside the stale visible range.
+      loadCandles();
     };
     ws.onclose = () => {
       setConnStatus(false);
