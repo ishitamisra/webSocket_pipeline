@@ -32,6 +32,7 @@ class CandleAggregator:
         self._open: dict[str, Candle] = {}
         self._history: dict[str, deque[Candle]] = {}
         self.late_patches = 0
+        self._last_patch: Candle | None = None
 
     def _bucket_start(self, event_time_ms: int) -> int:
         return (event_time_ms // self._bucket_ms) * self._bucket_ms
@@ -42,8 +43,25 @@ class CandleAggregator:
     def current(self, symbol: str) -> Candle | None:
         return self._open.get(symbol)
 
+    def take_patch(self) -> Candle | None:
+        """Consume (and clear) the candle revised by the most recent apply()
+        call, if that call patched an already-closed candle rather than
+        opening/merging/closing one. Callers that persist closed candles
+        need this too -- without it, a late patch corrects the in-memory
+        candle but the previously-written copy (SQLite, a cache, ...) is
+        left silently stale forever."""
+        patch = self._last_patch
+        self._last_patch = None
+        return patch
+
     def apply(self, tick: Tick) -> Candle | None:
-        """Apply one tick, returning the candle that just closed, if any."""
+        """Apply one tick, returning the candle that just closed, if any.
+
+        A tick can instead patch an already-closed candle (see the last
+        branch below) -- that case returns None here too, but the revised
+        candle is available via take_patch() right after this call.
+        """
+        self._last_patch = None
         bucket_start = self._bucket_start(tick.event_time_ms)
         open_candle = self._open.get(tick.symbol)
         closed_candle: Candle | None = None
@@ -70,6 +88,7 @@ class CandleAggregator:
             for candle in hist:
                 if candle.bucket_start_ms == bucket_start:
                     self._merge(candle, tick)
+                    self._last_patch = candle
                     break
         return None
 

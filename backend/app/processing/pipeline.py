@@ -140,6 +140,16 @@ class Pipeline:
                     events.append({"type": "candle_closed", "data": cdict})
                     if self._persistence is not None:
                         self._persistence.record_candle(cdict)
+                patched = agg.take_patch()
+                if patched is not None:
+                    pdict = patched.to_dict()
+                    events.append({"type": "candle_patched", "data": pdict})
+                    if self._persistence is not None:
+                        # Same primary key as the original write (symbol,
+                        # timeframe_sec, bucket_start_ms) -> SQLite's
+                        # INSERT OR REPLACE overwrites the stale row instead
+                        # of erroring or duplicating it.
+                        self._persistence.record_candle(pdict)
                 current = agg.current(symbol)
                 if current is not None:
                     events.append({"type": "candle_update", "data": current.to_dict()})

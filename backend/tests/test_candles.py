@@ -56,6 +56,27 @@ def test_late_tick_patches_already_closed_candle_history():
     assert agg.late_patches == 1
 
 
+def test_take_patch_exposes_the_revised_candle_so_callers_can_repersist_it():
+    agg = CandleAggregator(timeframe_sec=1, history_len=10)
+    agg.apply(make_tick(100.0, 1.0, 1_000))
+    agg.apply(make_tick(110.0, 1.0, 2_500))  # closes bucket 1000
+
+    # A normal (non-patching) apply() has no patch to report.
+    assert agg.take_patch() is None
+
+    # The late tick from the scenario above should be retrievable via
+    # take_patch() -- this is what lets a caller (Pipeline) know a
+    # closed candle it may have already persisted needs to be re-saved.
+    agg.apply(make_tick(120.0, 5.0, 1_900))
+    patch = agg.take_patch()
+    assert patch is not None
+    assert patch is agg.history("BTCUSDT")[0]  # same object that got revised
+    assert patch.high == 120.0
+
+    # Consuming it clears it -- a second read without a new apply() gets None.
+    assert agg.take_patch() is None
+
+
 def test_history_length_is_bounded():
     agg = CandleAggregator(timeframe_sec=1, history_len=3)
     for i in range(10):
